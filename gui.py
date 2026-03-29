@@ -1,62 +1,90 @@
-import tkinter as tk
+import os
+import logging
+import threading
+import webbrowser
+from flask import Flask, Response, request, jsonify, send_from_directory
 
-def run_gui(engine):
+logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
-    def search():
-        query = entry.get()
-        result = engine.process_query(query)
+app = Flask(
+    __name__,
+    template_folder=os.path.join(os.path.dirname(__file__), "templates"),
+    static_folder=os.path.join(os.path.dirname(__file__), "templates"),
+)
 
-        listbox.delete(0, tk.END)
+_engine    = None
+_data_path = None
 
-        for doc in sorted(result):
-            listbox.insert(tk.END, doc)
 
-        result_label.config(text=f"Results: {len(result)} documents found")
+@app.route("/")
+def index():
+    return send_from_directory(app.template_folder, "index.html")
 
-    def show_preview(event):
-        selected = listbox.curselection()
-        if not selected:
-            return
 
-        doc_id = listbox.get(selected[0])
+@app.route("/favicon.ico")
+def favicon():
+    svg = (
+        b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">'
+        b'<rect width="32" height="32" rx="4" fill="#f5f0e8"/>'
+        b'<rect x="4" y="4" width="11" height="11" rx="2" fill="#1a1a1a"/>'
+        b'<rect x="17" y="4" width="11" height="11" rx="2" fill="#1a1a1a" opacity=".35"/>'
+        b'<rect x="4" y="17" width="11" height="11" rx="2" fill="#1a1a1a" opacity=".35"/>'
+        b'<rect x="17" y="17" width="11" height="11" rx="2" fill="#1a1a1a"/>'
+        b'</svg>'
+    )
+    return Response(svg, mimetype="image/svg+xml")
 
-        try:
-            with open(f"documents/{doc_id}.txt", "r", encoding="utf-8") as f:
-                content = f.read()
-        except:
-            content = "File not found"
 
-        preview.delete("1.0", tk.END)
-        preview.insert(tk.END, content[:1000])
+@app.route("/search", methods=["POST"])
+def search():
+    data  = request.get_json(force=True)
+    query = data.get("query", "").strip()
+    if not query:
+        return jsonify(results=[], stemmed=[])
 
-    root = tk.Tk()
-    root.title("Boolean IR System")
+    try:
+        result_set    = _engine.process_query(query)
+        stemmed_terms = _engine.get_stemmed_terms(query)
+        results = sorted(
+            result_set,
+            key=lambda x: int(x) if x.isdigit() else float("inf")
+        ) if result_set else []
+    except Exception as e:
+        return jsonify(error=str(e), results=[], stemmed=[]), 500
 
-    example_frame = tk.Frame(root)
-    example_frame.pack()
+    return jsonify(results=results, stemmed=stemmed_terms)
 
-    def set_query(q):
-        entry.delete(0, tk.END)
-        entry.insert(0, q)
 
-    tk.Button(example_frame, text="AND", command=lambda: set_query("trump AND america")).pack(side=tk.LEFT)
-    tk.Button(example_frame, text="OR", command=lambda: set_query("trump OR america")).pack(side=tk.LEFT)
-    tk.Button(example_frame, text="NOT", command=lambda: set_query("trump NOT america")).pack(side=tk.LEFT)
-    tk.Button(example_frame, text="/5", command=lambda: set_query("trump /5 speech")).pack(side=tk.LEFT)
+@app.route("/preview/<doc_id>")
+def preview(doc_id):
+    safe_id  = "".join(c for c in doc_id if c.isdigit())
+    filepath = os.path.join(_data_path, f"speech_{safe_id}.txt")
 
-    entry = tk.Entry(root, width=50)
-    entry.pack()
+    if not os.path.isfile(filepath):
+        return jsonify(content="File not found."), 404
 
-    btn = tk.Button(root, text="Search", command=search)
-    btn.pack()
-    result_label = tk.Label(root, text="Results: 0 documents found")
-    result_label.pack()
+    try:
+        with open(filepath, "r", encoding="utf-8") as f:
+            content = f.read()
+        return jsonify(content=content)
+    except Exception as e:
+        return jsonify(content=f"Error: {e}"), 500
 
-    listbox = tk.Listbox(root, width=50, height=15)
-    listbox.pack()
-    listbox.bind("<<ListboxSelect>>", show_preview)
 
-    preview = tk.Text(root, height=10, width=60)
-    preview.pack()
+@app.route("/info")
+def info():
+    count = 0
+    if _data_path and os.path.isdir(_data_path):
+        count = sum(1 for f in os.listdir(_data_path) if f.endswith(".txt"))
+    return jsonify(doc_count=count)
 
-    root.mainloop()
+
+def run_gui(engine, data_path="data/Trump Speechs", host="127.0.0.1", port=5050):
+    global _engine, _data_path
+    _engine    = engine
+    _data_path = data_path
+
+    url = f"http://{host}:{port}"
+    print(f"\n  Boolean IR System  →  {url}\n")
+    threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+    app.run(host=host, port=port, debug=False, use_reloader=False)

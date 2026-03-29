@@ -18,23 +18,19 @@ engine = QueryEngine(
     indexer.documents,
     PorterStemmer()
 )
+
 def load_queries(file):
     queries = []
-
     with open(file, 'r') as f:
         for line in f:
             line = line.strip()
-
             if not line:
                 continue
-
             if line.startswith("{"):
                 continue
-
             queries.append(line)
-
     return queries
-    
+
 queries = load_queries("Querry List.txt")
 for q in queries:
     result = engine.process_query(q)
@@ -42,4 +38,4 @@ for q in queries:
     print(f"Result: {result}")
     print("-" * 40)
 
-run_gui(engine)
+run_gui(engine, data_path=DATA_PATH)

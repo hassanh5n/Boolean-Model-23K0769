@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IR Boolean Model — Trump Speeches</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --paper:   #f7f3ec;
+  --paper2:  #ede8df;
+  --paper3:  #e4ddd2;
+  --ink:     #1c1916;
+  --ink2:    #4a443c;
+  --ink3:    #8a8078;
+  --accent:  #b5401a;
+  --accent2: #d4602e;
+  --rule:    rgba(28,25,22,.1);
+  --rule2:   rgba(28,25,22,.06);
+  --mono:    'DM Mono', monospace;
+  --serif:   'DM Serif Display', Georgia, serif;
+  --sans:    'DM Sans', system-ui, sans-serif;
+}
+
+html, body { height: 100%; }
+
+body {
+  font-family: var(--sans);
+  background: var(--paper);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Masthead ── */
+.masthead {
+  display: flex;
+  align-items: baseline;
+  gap: 20px;
+  padding: 18px 32px 16px;
+  border-bottom: 2px solid var(--ink);
+  background: var(--paper);
+  flex-shrink: 0;
+}
+.masthead-title {
+  font-family: var(--serif);
+  font-size: 22px;
+  letter-spacing: .01em;
+  color: var(--ink);
+  line-height: 1;
+}
+.masthead-sub {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink3);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+.masthead-corpus {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink3);
+  border: 1px solid var(--rule);
+  padding: 3px 10px;
+  border-radius: 2px;
+  background: var(--paper2);
+}
+
+/* ── App shell ── */
+.shell {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── Left column ── */
+.left-col {
+  border-right: 1px solid var(--ink);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--paper);
+}
+
+/* ── Search box ── */
+.search-box {
+  padding: 20px 20px 0;
+  flex-shrink: 0;
+}
+.search-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink3);
+  margin-bottom: 8px;
+  display: block;
+}
+.input-row {
+  display: flex;
+  gap: 0;
+  border: 1.5px solid var(--ink);
+  background: #fff;
+}
+.input-row input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  padding: 10px 12px;
+  color: var(--ink);
+  min-width: 0;
+}
+.input-row input::placeholder { color: var(--ink3); }
+.go-btn {
+  background: var(--ink);
+  color: var(--paper);
+  border: none;
+  padding: 0 16px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .06em;
+  cursor: pointer;
+  transition: background .15s;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.go-btn:hover { background: var(--accent); }
+.go-btn:active { background: var(--ink2); }
+.go-btn .spinner {
+  display: none;
+  width: 12px; height: 12px;
+  border: 1.5px solid rgba(255,255,255,.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin .55s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Operators ── */
+.ops-section {
+  padding: 14px 20px 16px;
+  border-bottom: 1px solid var(--rule);
+  flex-shrink: 0;
+}
+.ops-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink3);
+  margin-bottom: 8px;
+  display: block;
+}
+.ops-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.op-chip {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink2);
+  background: var(--paper2);
+  border: 1px solid var(--rule);
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all .12s;
+  border-radius: 2px;
+}
+.op-chip:hover {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+.op-chip b {
+  color: var(--accent);
+  font-weight: 500;
+}
+.op-chip:hover b { color: #ffaa88; }
+
+/* ── Results list ── */
+.results-wrap {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+.results-wrap::-webkit-scrollbar { width: 4px; }
+.results-wrap::-webkit-scrollbar-track { background: var(--paper2); }
+.results-wrap::-webkit-scrollbar-thumb { background: var(--paper3); }
+
+.results-header {
+  padding: 12px 20px 8px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink3);
+  border-bottom: 1px solid var(--rule2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.results-header .count-badge {
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 9px;
+  padding: 1px 7px;
+  border-radius: 2px;
+  display: none;
+}
+
+.doc-item {
+  display: flex;
+  align-items: center;
+  padding: 9px 20px;
+  border-bottom: 1px solid var(--rule2);
+  cursor: pointer;
+  transition: background .1s;
+  gap: 10px;
+}
+.doc-item:hover { background: var(--paper2); }
+.doc-item.active {
+  background: var(--ink);
+}
+.doc-item.active .doc-num,
+.doc-item.active .doc-name { color: var(--paper); }
+.doc-item.active .doc-icon { background: var(--accent); }
+
+.doc-num {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink3);
+  width: 20px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.doc-icon {
+  width: 5px; height: 5px;
+  background: var(--ink3);
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background .1s;
+}
+.doc-name {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink2);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Stats footer ── */
+.stats-footer {
+  border-top: 1px solid var(--ink);
+  padding: 8px 20px;
+  display: flex;
+  gap: 20px;
+  background: var(--paper2);
+  flex-shrink: 0;
+}
+.stat {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink3);
+  display: flex;
+  gap: 5px;
+  align-items: baseline;
+}
+.stat-val {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* ── Empty / error states ── */
+.state-msg {
+  padding: 40px 20px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink3);
+  line-height: 1.7;
+}
+.state-msg .glyph {
+  font-family: var(--serif);
+  font-size: 32px;
+  color: var(--paper3);
+  display: block;
+  margin-bottom: 10px;
+}
+
+/* ── Right column: preview ── */
+.right-col {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--paper);
+}
+
+.preview-header {
+  padding: 14px 32px 12px;
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-shrink: 0;
+  background: var(--paper);
+}
+.preview-file {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink2);
+}
+.preview-tag {
+  font-family: var(--mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  padding: 1px 6px;
+  border-radius: 2px;
+  display: none;
+}
+.preview-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 36px 48px;
+  min-height: 0;
+}
+.preview-scroll::-webkit-scrollbar { width: 4px; }
+.preview-scroll::-webkit-scrollbar-track { background: var(--paper2); }
+.preview-scroll::-webkit-scrollbar-thumb { background: var(--paper3); }
+
+.preview-title-block {
+  font-family: var(--serif);
+  font-size: 22px;
+  color: var(--ink);
+  line-height: 1.3;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.preview-body {
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 300;
+  line-height: 1.85;
+  color: var(--ink2);
+  white-space: pre-wrap;
+  max-width: 680px;
+}
+
+.preview-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  opacity: .35;
+}
+.preview-empty .big-glyph {
+  font-family: var(--serif);
+  font-size: 64px;
+  font-style: italic;
+  color: var(--ink3);
+  line-height: 1;
+}
+.preview-empty p {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink3);
+}
+
+/* Highlight */
+mark {
+  background: #f5c48a;
+  color: var(--ink);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+/* ── Divider rule between masthead sections ── */
+.rule-line {
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  height: 1px;
+  background: repeating-linear-gradient(90deg,var(--rule) 0,var(--rule) 4px,transparent 4px,transparent 8px);
+  margin: 0;
+  flex-shrink: 0;
+}
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <div>
+    <div class="masthead-title">IR Boolean Model</div>
+    <div class="masthead-sub">Trump Speeches · Index Search</div>
+  </div>
+  <div class="masthead-corpus" id="corpusLabel">Loading corpus…</div>
+</div>
+
+<div class="shell">
+
+  <!-- LEFT -->
+  <div class="left-col">
+
+    <div class="search-box">
+      <label class="search-label">Query</label>
+      <div class="input-row">
+        <input id="queryInput" type="text" placeholder="e.g.  america AND jobs" autocomplete="off" spellcheck="false">
+        <button class="go-btn" id="goBtn" onclick="runSearch()">
+          <span id="btnText">Search</span>
+          <div class="spinner" id="spinner"></div>
+        </button>
+      </div>
+    </div>
+
+    <div class="ops-section">
+      <label class="ops-label">Operators</label>
+      <div class="ops-row">
+        <div class="op-chip" onclick="setQ('america AND jobs')"><b>AND</b></div>
+        <div class="op-chip" onclick="setQ('america OR jobs')"><b>OR</b></div>
+        <div class="op-chip" onclick="setQ('NOT hillary')"><b>NOT</b></div>
+        <div class="op-chip" onclick="setQ('trump /3 great')"><b>/k</b> prox</div>
+        <div class="op-chip" onclick="setQ('(america OR jobs) AND trump')">( )</div>
+      </div>
+    </div>
+
+    <div class="results-header">
+      <span>Documents</span>
+      <span class="count-badge" id="countBadge">0</span>
+    </div>
+
+    <div class="results-wrap" id="resultsList">
+      <div class="state-msg">
+        <span class="glyph">∅</span>
+        Enter a query above<br>to search the corpus
+      </div>
+    </div>
+
+    <div class="stats-footer">
+      <div class="stat"><span class="stat-val" id="statCount">—</span> results</div>
+      <div class="stat"><span class="stat-val" id="statTime">—</span> ms</div>
+      <div class="stat" style="margin-left:auto; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+        <span class="stat-val" id="statQuery" style="color:var(--ink3)">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right-col">
+    <div class="preview-header">
+      <span class="preview-file" id="previewFile">No document selected</span>
+      <span class="preview-tag" id="previewTag">preview</span>
+    </div>
+    <div class="preview-scroll">
+      <div class="preview-empty" id="previewEmpty">
+        <div class="big-glyph">¶</div>
+        <p>Select a result to read</p>
+      </div>
+      <div id="previewContent" style="display:none">
+        <div class="preview-title-block" id="previewTitleBlock"></div>
+        <pre class="preview-body" id="previewBody"></pre>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let stemmedTerms = [];
+
+/* ── Search ── */
+async function runSearch() {
+  const q = document.getElementById('queryInput').value.trim();
+  if (!q) return;
+
+  setBusy(true);
+  const t0 = performance.now();
+
+  try {
+    const res  = await fetch('/search', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({query: q})
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const ms   = Math.round(performance.now() - t0);
+
+    stemmedTerms = data.stemmed || [];
+    renderResults(data.results || [], q, ms);
+  } catch(e) {
+    showError(e.message);
+  } finally {
+    setBusy(false);
+  }
+}
+
+function setBusy(on) {
+  document.getElementById('goBtn').disabled = on;
+  document.getElementById('btnText').style.display = on ? 'none' : '';
+  document.getElementById('spinner').style.display  = on ? 'block' : 'none';
+}
+
+/* ── Render results ── */
+function renderResults(docs, q, ms) {
+  document.getElementById('statCount').textContent = docs.length;
+  document.getElementById('statTime').textContent  = ms;
+  document.getElementById('statQuery').textContent = q;
+
+  const badge = document.getElementById('countBadge');
+  badge.textContent    = docs.length;
+  badge.style.display  = docs.length ? 'inline' : 'none';
+
+  const list = document.getElementById('resultsList');
+  if (docs.length === 0) {
+    list.innerHTML = `<div class="state-msg"><span class="glyph">∅</span>No documents matched<br><em>${esc(q)}</em></div>`;
+    return;
+  }
+
+  list.innerHTML = docs.map((id, i) =>
+    `<div class="doc-item" onclick="loadPreview('${id}', this)" data-id="${id}">
+       <span class="doc-num">${String(i+1).padStart(2,'0')}</span>
+       <span class="doc-icon"></span>
+       <span class="doc-name">speech_${id}.txt</span>
+     </div>`
+  ).join('');
+}
+
+/* ── Preview ── */
+async function loadPreview(id, el) {
+  document.querySelectorAll('.doc-item').forEach(r => r.classList.remove('active'));
+  el.classList.add('active');
+
+  document.getElementById('previewFile').textContent  = `speech_${id}.txt`;
+  document.getElementById('previewTag').style.display = 'inline';
+  document.getElementById('previewEmpty').style.display   = 'none';
+  document.getElementById('previewContent').style.display = 'none';
+
+  try {
+    const res  = await fetch(`/preview/${id}`);
+    const data = await res.json();
+    const raw  = data.content || 'File not found.';
+
+    // Split first line (title) from body
+    const nl    = raw.indexOf('\n');
+    const title = nl > -1 ? raw.slice(0, nl).trim() : raw.slice(0, 120).trim();
+    const body  = nl > -1 ? raw.slice(nl+1).trim()  : '';
+
+    document.getElementById('previewTitleBlock').innerHTML = hl(esc(title));
+    document.getElementById('previewBody').innerHTML       = hl(esc(body));
+    document.getElementById('previewContent').style.display = 'block';
+  } catch(e) {
+    document.getElementById('previewBody').textContent = 'Could not load preview.';
+    document.getElementById('previewContent').style.display = 'block';
+  }
+}
+
+/* ── Highlight using STEMMED terms ── */
+function hl(escapedText) {
+  if (!stemmedTerms.length) return escapedText;
+  const stemSet = new Set(stemmedTerms);
+
+  return escapedText.replace(/\b([a-zA-Z]{3,})\b/g, (word) => {
+    if (stemSet.has(jsStem(word.toLowerCase()))) {
+      return `<mark>${word}</mark>`;
+    }
+    return word;
+  });
+}
+
+/* Lightweight JS port of the most common Porter stem suffixes */
+function jsStem(w) {
+  // Step 1a
+  if (w.endsWith('sses'))      w = w.slice(0,-2);
+  else if (w.endsWith('ies'))  w = w.slice(0,-2);
+  else if (w.endsWith('ss'))   { /* keep */ }
+  else if (w.endsWith('s') && w.length > 3)    w = w.slice(0,-1);
+  // Step 1b
+  if (w.endsWith('eed'))       { if (w.length > 4) w = w.slice(0,-1); }
+  else if (w.endsWith('ed') && /[aeiou]/.test(w.slice(0,-2)))  w = w.slice(0,-2);
+  else if (w.endsWith('ing') && /[aeiou]/.test(w.slice(0,-3))) w = w.slice(0,-3);
+  // Step 2 — common suffixes
+  const s2 = [['ational','ate'],['tional','tion'],['enci','ence'],['anci','ance'],
+              ['izer','ize'],['iser','ise'],['bli','ble'],['alli','al'],
+              ['entli','ent'],['eli','e'],['ousli','ous'],['ization','ize'],
+              ['isation','ise'],['ation','ate'],['ator','ate'],['alism','al'],
+              ['iveness','ive'],['fulness','ful'],['ousness','ous'],['aliti','al'],
+              ['iviti','ive'],['biliti','ble'],['logi','log']];
+  for (const [suf, rep] of s2) {
+    if (w.endsWith(suf) && w.length - suf.length > 1) { w = w.slice(0,-suf.length)+rep; break; }
+  }
+  // Step 3
+  const s3 = [['icate','ic'],['ative',''],['alize','al'],['alise','al'],
+              ['iciti','ic'],['ical','ic'],['ful',''],['ness','']];
+  for (const [suf, rep] of s3) {
+    if (w.endsWith(suf) && w.length - suf.length > 1) { w = w.slice(0,-suf.length)+rep; break; }
+  }
+  // Step 4 — remove derivational suffixes
+  const s4 = ['ement','ment','ance','ence','able','ible','ant','ent',
+               'ion','ism','ate','iti','ous','ive','ize','ise','al','er','ic'];
+  for (const suf of s4) {
+    if (w.endsWith(suf) && w.length - suf.length > 2) { w = w.slice(0,-suf.length); break; }
+  }
+  // Step 5a — remove trailing e
+  if (w.endsWith('e') && w.length > 4) w = w.slice(0,-1);
+  // Step 5b — double consonant ll → l
+  if (w.endsWith('ll') && w.length > 3) w = w.slice(0,-1);
+  return w;
+}
+
+function setQ(q) {
+  document.getElementById('queryInput').value = q;
+  document.getElementById('queryInput').focus();
+}
+
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function showError(msg) {
+  document.getElementById('resultsList').innerHTML =
+    `<div class="state-msg"><span class="glyph">!</span>Search failed<br><small>${esc(msg||'')}</small></div>`;
+  document.getElementById('statCount').textContent = 'err';
+}
+
+/* Enter key */
+document.getElementById('queryInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') runSearch();
+});
+
+/* Corpus count */
+fetch('/info').then(r=>r.json()).then(d=>{
+  document.getElementById('corpusLabel').textContent = `${d.doc_count} speeches`;
+}).catch(()=>{
+  document.getElementById('corpusLabel').textContent = 'server offline';
+});
+</script>
+</body>
+</html>
